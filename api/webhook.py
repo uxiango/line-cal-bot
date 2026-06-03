@@ -193,8 +193,21 @@ def handle_message(event):
 
 @app.route('/api/webhook', methods=['POST'])
 def webhook():
+    import hashlib
+    import hmac as hmac_mod
+    import base64
+    import sys
+
     signature = request.headers.get('X-Line-Signature', '')
     body = request.get_data(as_text=True)
+    secret = os.environ.get('LINE_CHANNEL_SECRET', '')
+
+    computed = base64.b64encode(
+        hmac_mod.new(secret.encode('utf-8'), body.encode('utf-8'), hashlib.sha256).digest()
+    ).decode('utf-8')
+
+    print(f'[DEBUG] secret_len={len(secret)} body_len={len(body)} received={signature[:20]} computed={computed[:20]}', file=sys.stderr)
+
     try:
         webhook_handler.handle(body, signature)
         return 'OK', 200
