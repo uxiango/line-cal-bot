@@ -164,9 +164,30 @@ def reply_message(reply_token, text):
         )
 
 
+HELP_TEXT = """📅 行事曆 Bot 使用說明
+
+格式：
+/cal [對象] [時間] [事件] [長度] [重複] [結束日期]
+
+對象：xiang / hannah / we
+
+範例：
+/cal xiang 明天下午3點 開會
+/cal hannah 下週五晚上8點 吃飯 1小時半
+/cal we 6/15 下午2點 看電影 2小時
+/cal xiang 每週一下午3點 週會 1小時 每週 2026/12/31
+
+長度：半小時／1小時／1小時半／2小時...
+重複：每天／每週／每兩週／每月
+結束日期：2026/12/31 或 12/31"""
+
+
 @webhook_handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event):
     text = event.message.text.strip()
+    if text.lower() == '/cal help':
+        reply_message(event.reply_token, HELP_TEXT)
+        return
     if not text.lower().startswith('/cal '):
         return
 
