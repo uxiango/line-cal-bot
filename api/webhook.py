@@ -2,11 +2,11 @@ import json
 import os
 import re
 from datetime import datetime, timedelta
-from http.server import BaseHTTPRequestHandler
 
 import dateparser
 import pytz
 from dateparser.search import search_dates
+from flask import Flask, abort, request
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from linebot.v3 import WebhookHandler
@@ -19,6 +19,8 @@ from linebot.v3.messaging import (
     TextMessage,
 )
 from linebot.v3.webhooks import MessageEvent, TextMessageContent
+
+app = Flask(__name__)
 
 TW_TZ = pytz.timezone('Asia/Taipei')
 
@@ -189,19 +191,12 @@ def handle_message(event):
         reply_message(event.reply_token, '❌ 新增失敗，請稍後再試')
 
 
-class handler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        length = int(self.headers.get('Content-Length', 0))
-        body = self.rfile.read(length).decode('utf-8')
-        signature = self.headers.get('X-Line-Signature', '')
-        try:
-            webhook_handler.handle(body, signature)
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(b'OK')
-        except InvalidSignatureError:
-            self.send_response(400)
-            self.end_headers()
-
-    def log_message(self, format, *args):
-        pass
+@app.route('/api/webhook', methods=['POST'])
+def webhook():
+    signature = request.headers.get('X-Line-Signature', '')
+    body = request.get_data(as_text=True)
+    try:
+        webhook_handler.handle(body, signature)
+        return 'OK', 200
+    except InvalidSignatureError:
+        abort(400)
