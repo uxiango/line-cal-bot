@@ -9,13 +9,20 @@ import pytz
 from dateparser.search import search_dates
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-from linebot import LineBotApi, WebhookHandler
-from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage
+from linebot.v3 import WebhookHandler
+from linebot.v3.exceptions import InvalidSignatureError
+from linebot.v3.messaging import (
+    ApiClient,
+    Configuration,
+    MessagingApi,
+    ReplyMessageRequest,
+    TextMessage,
+)
+from linebot.v3.webhooks import MessageEvent, TextMessageContent
 
 TW_TZ = pytz.timezone('Asia/Taipei')
 
-line_bot_api = LineBotApi(os.environ['LINE_CHANNEL_ACCESS_TOKEN'])
+line_configuration = Configuration(access_token=os.environ['LINE_CHANNEL_ACCESS_TOKEN'])
 webhook_handler = WebhookHandler(os.environ['LINE_CHANNEL_SECRET'])
 
 CALENDAR_IDS = {
@@ -86,7 +93,7 @@ def parse_datetime_and_event(text):
 
 
 def parse_command(text):
-    text = text[4:].strip()  # remove /cal
+    text = text[4:].strip()
 
     parts = text.split(None, 1)
     if len(parts) < 2:
@@ -145,7 +152,17 @@ def create_calendar_event(parsed):
     ).execute()
 
 
-@webhook_handler.add(MessageEvent, message=TextMessage)
+def reply_message(reply_token, text):
+    with ApiClient(line_configuration) as api_client:
+        MessagingApi(api_client).reply_message(
+            ReplyMessageRequest(
+                reply_token=reply_token,
+                messages=[TextMessage(text=text)],
+            )
+        )
+
+
+@webhook_handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event):
     text = event.message.text.strip()
     if not text.lower().startswith('/cal '):
@@ -153,11 +170,9 @@ def handle_message(event):
 
     parsed = parse_command(text)
     if not parsed:
-        line_bot_api.reply_message(
+        reply_message(
             event.reply_token,
-            TextSendMessage(
-                text='❌ 格式錯誤\n請用：/cal [xiang/hannah/we] [時間] [事件] [長度] [重複] [結束日期]'
-            ),
+            '❌ 格式錯誤\n請用：/cal [xiang/hannah/we] [時間] [事件] [長度] [重複] [結束日期]',
         )
         return
 
@@ -169,12 +184,9 @@ def handle_message(event):
         if parsed['rrule'] and parsed['end_date']:
             ed = parsed['end_date']
             reply += f'\n🔁 重複至 {ed[:4]}/{ed[4:6]}/{ed[6:]}'
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
+        reply_message(event.reply_token, reply)
     except Exception:
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text='❌ 新增失敗，請稍後再試'),
-        )
+        reply_message(event.reply_token, '❌ 新增失敗，請稍後再試')
 
 
 class handler(BaseHTTPRequestHandler):
