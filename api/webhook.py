@@ -140,7 +140,7 @@ def parse_command(text):
 
 
 def create_calendar_event(parsed):
-    info = json.loads(os.environ['GOOGLE_CREDENTIALS_JSON'])
+    info = json.loads(os.environ['GOOGLE_CREDENTIALS_JSON'].lstrip('﻿'))
     creds = service_account.Credentials.from_service_account_info(
         info, scopes=['https://www.googleapis.com/auth/calendar']
     )
