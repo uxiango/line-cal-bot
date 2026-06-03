@@ -220,7 +220,10 @@ def handle_message(event):
             ed = parsed['end_date']
             reply += f'\n🔁 重複至 {ed[:4]}/{ed[4:6]}/{ed[6:]}'
         reply_message(event.reply_token, reply)
-    except Exception:
+    except Exception as e:
+        import traceback, sys
+        print(f'[ERROR] {e}', file=sys.stderr)
+        print(traceback.format_exc(), file=sys.stderr)
         reply_message(event.reply_token, '❌ 新增失敗，請稍後再試')
 
 
