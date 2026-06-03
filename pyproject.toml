@@ -1,0 +1,11 @@
+[project]
+name = "line-cal-bot"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "line-bot-sdk==2.4.2",
+    "google-api-python-client==2.111.0",
+    "google-auth==2.25.2",
+    "dateparser==1.2.0",
+    "pytz==2023.3",
+]
