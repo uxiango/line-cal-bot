@@ -24,13 +24,13 @@ app = Flask(__name__)
 
 TW_TZ = pytz.timezone('Asia/Taipei')
 
-line_configuration = Configuration(access_token=os.environ['LINE_CHANNEL_ACCESS_TOKEN'])
-webhook_handler = WebhookHandler(os.environ['LINE_CHANNEL_SECRET'])
+line_configuration = Configuration(access_token=os.environ['LINE_CHANNEL_ACCESS_TOKEN'].strip())
+webhook_handler = WebhookHandler(os.environ['LINE_CHANNEL_SECRET'].strip())
 
 CALENDAR_IDS = {
-    'xiang': os.environ['CALENDAR_ID_XIANG'],
-    'hannah': os.environ['CALENDAR_ID_HANNAH'],
-    'we': os.environ['CALENDAR_ID_WE'],
+    'xiang': os.environ['CALENDAR_ID_XIANG'].strip(),
+    'hannah': os.environ['CALENDAR_ID_HANNAH'].strip(),
+    'we': os.environ['CALENDAR_ID_WE'].strip(),
 }
 
 PERSON_DISPLAY = {'xiang': 'Xiang', 'hannah': 'Hannah', 'we': 'We'}
@@ -200,7 +200,7 @@ def webhook():
 
     signature = request.headers.get('X-Line-Signature', '')
     body = request.get_data(as_text=True)
-    secret = os.environ.get('LINE_CHANNEL_SECRET', '')
+    secret = os.environ.get('LINE_CHANNEL_SECRET', '').strip()
 
     computed = base64.b64encode(
         hmac_mod.new(secret.encode('utf-8'), body.encode('utf-8'), hashlib.sha256).digest()
