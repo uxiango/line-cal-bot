@@ -43,6 +43,17 @@ RRULE_MAP = {
 }
 
 
+_CN_DIGITS = str.maketrans('一二三四五六七八九零', '1234567890')
+
+def normalize_chinese_numbers(text):
+    text = text.translate(_CN_DIGITS)
+    text = re.sub(r'(?<!\d)十(\d)', r'1\1', text)
+    text = re.sub(r'(\d)十(\d)', lambda m: str(int(m.group(1)) * 10 + int(m.group(2))), text)
+    text = re.sub(r'(\d)十(?!\d)', lambda m: str(int(m.group(1)) * 10), text)
+    text = re.sub(r'(?<!\d)十(?!\d)', '10', text)
+    return text
+
+
 def parse_duration(text):
     patterns = [
         (r'(\d+)小時半', lambda m: int(m.group(1)) * 60 + 30),
@@ -105,6 +116,7 @@ def parse_command(text):
         return None
     remaining = parts[1]
 
+    remaining = normalize_chinese_numbers(remaining)
     rrule, remaining = parse_recurrence(remaining)
     end_date = None
     if rrule:
