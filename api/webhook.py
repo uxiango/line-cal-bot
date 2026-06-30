@@ -228,6 +228,32 @@ def parse_date_natural(text):
     return None, text
 
 
+def parse_multi_day_date_range(text):
+    """Detect MM/DD-MM/DD pattern anywhere in text.
+    Returns (start_date, end_date_exclusive, remaining) or (None, None, text)."""
+    m = re.search(r'\b(\d{1,2}/\d{1,2})-(\d{1,2}/\d{1,2})\b', text)
+    if not m:
+        return None, None, text
+
+    now = datetime.now(TW_TZ)
+    today = now.date()
+    try:
+        s_mo, s_d = map(int, m.group(1).split('/'))
+        e_mo, e_d = map(int, m.group(2).split('/'))
+        start_year = now.year
+        if (s_mo, s_d) < (today.month, today.day):
+            start_year += 1
+        start_date = date(start_year, s_mo, s_d)
+        end_date = date(start_year, e_mo, e_d)
+        if end_date < start_date:
+            end_date = date(start_year + 1, e_mo, e_d)
+    except ValueError:
+        return None, None, text
+
+    remaining = (text[:m.start()] + text[m.end():]).strip()
+    return start_date, end_date + timedelta(days=1), remaining
+
+
 def parse_duration(text):
     patterns = [
         (r'(\d+)小時半', lambda m: int(m.group(1)) * 60 + 30),
@@ -297,6 +323,24 @@ def parse_add_command(text):
         return None
     remaining = parts[1]
 
+    # Multi-day all-day event: MM/DD-MM/DD anywhere in text
+    start_date, end_date_excl, event_name = parse_multi_day_date_range(remaining)
+    if start_date is not None:
+        if not event_name:
+            return None
+        return {
+            'person': person,
+            'datetime': None,
+            'date': _to_aware(start_date),
+            'end_date_multi': _to_aware(end_date_excl),
+            'all_day': True,
+            'multi_day': True,
+            'event_name': event_name.strip(),
+            'duration_minutes': 0,
+            'rrule': None,
+            'end_date': None,
+        }
+
     rrule, remaining = parse_recurrence(remaining)
     end_date = None
     if rrule:
@@ -316,6 +360,7 @@ def parse_add_command(text):
         'datetime': combine_date_time(date_dt, hour, minute) if hour is not None else None,
         'date': date_dt,
         'all_day': hour is None,
+        'multi_day': False,
         'event_name': event_name.strip(),
         'duration_minutes': duration_minutes,
         'rrule': rrule,
@@ -646,7 +691,15 @@ def handle_add(event, text):
     try:
         service = get_calendar_service()
 
-        if parsed['all_day']:
+        if parsed.get('multi_day'):
+            start_str = parsed['date'].strftime('%Y-%m-%d')
+            end_str = parsed['end_date_multi'].strftime('%Y-%m-%d')
+            event_body = {
+                'summary': parsed['event_name'],
+                'start': {'date': start_str},
+                'end': {'date': end_str},
+            }
+        elif parsed['all_day']:
             date_str = parsed['date'].strftime('%Y-%m-%d')
             next_day = (parsed['date'] + timedelta(days=1)).strftime('%Y-%m-%d')
             event_body = {
@@ -672,7 +725,11 @@ def handle_add(event, text):
         service.events().insert(calendarId=CALENDAR_IDS[parsed['person']], body=event_body).execute()
 
         label = PERSON_DISPLAY[parsed['person']]
-        if parsed['all_day']:
+        if parsed.get('multi_day'):
+            start_str = parsed['date'].strftime('%Y-%m-%d')
+            display_end = (parsed['end_date_multi'] - timedelta(days=1)).strftime('%Y-%m-%d')
+            reply = f'✅ 已新增到 {label} 行事曆\n📅 {start_str} ～ {display_end} {parsed["event_name"]}（全天）'
+        elif parsed['all_day']:
             start_str = parsed['date'].strftime('%Y-%m-%d')
             reply = f'✅ 已新增到 {label} 行事曆\n📅 {start_str} {parsed["event_name"]}（全天）'
         else:
